@@ -10,11 +10,11 @@ Data::Tabulate - Table generation!
 
 =head1 VERSION
 
-Version 0.02
+Version 0.03
 
 =cut
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 =head1 SYNOPSIS
 
@@ -51,6 +51,7 @@ sub new {
     bless $self,$class;
     
     $self->max_columns(100_000);
+    $self->min_columns(1);
     
     return $self;
 }
@@ -130,6 +131,11 @@ sub tabulate {
     if($cols > $self->max_columns){
         $cols    = $self->max_columns;
     }
+    
+    if($cols < $self->min_columns){
+        $cols    = $self->min_columns;
+    }
+    
     my $rest = ($cols - ($nr % $cols)) % $cols;
     my $rows = int (($nr + $rest) / $cols);
     
@@ -184,8 +190,35 @@ the table has at most three columns
 sub max_columns{
     my ($self,$value) = @_;
     
-    $self->{max_cols} = $value if defined $value and $value =~ /^\d+$/;
+    $self->{max_cols} = $value if defined $value and $value =~ /^[1-9]\d*$/;
+    
+    unless( (caller(1))[3] =~ /min_columns/ or not defined $self->min_columns){
+        $self->min_columns($self->{max_cols}) if $self->{max_cols} < $self->min_columns;
+    }
+    
     return $self->{max_cols};
+}
+
+=head2 min_columns
+
+set how many columns the table can have (at least).
+
+    $tabulator->min_columns(3);
+
+the table has at least three columns
+
+=cut
+
+sub min_columns{
+    my ($self,$value) = @_;
+    
+    $self->{min_cols} = $value if defined $value and $value =~ /^[1-9]\d*$/;
+    
+    unless( (caller(1))[3] =~ /max_columns/){
+        $self->max_columns($self->{min_cols}) if $self->{min_cols} > $self->max_columns;
+    }
+    
+    return $self->{min_cols};
 }
 
 =head2 do_func($module, $method, @params)
