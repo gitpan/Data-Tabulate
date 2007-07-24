@@ -10,11 +10,11 @@ Data::Tabulate - Table generation!
 
 =head1 VERSION
 
-Version 0.03
+Version 0.04
 
 =cut
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 =head1 SYNOPSIS
 
@@ -192,7 +192,8 @@ sub max_columns{
     
     $self->{max_cols} = $value if defined $value and $value =~ /^[1-9]\d*$/;
     
-    unless( (caller(1))[3] =~ /min_columns/ or not defined $self->min_columns){
+    my $caller = (caller(1))[3];
+    unless( ($caller and $caller =~ /min_columns/) or not defined $self->min_columns){
         $self->min_columns($self->{max_cols}) if $self->{max_cols} < $self->min_columns;
     }
     
@@ -214,7 +215,8 @@ sub min_columns{
     
     $self->{min_cols} = $value if defined $value and $value =~ /^[1-9]\d*$/;
     
-    unless( (caller(1))[3] =~ /max_columns/){
+    my $caller = (caller(1))[3];
+    unless( $caller and $caller =~ /max_columns/){
         $self->max_columns($self->{min_cols}) if $self->{min_cols} > $self->max_columns;
     }
     

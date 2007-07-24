@@ -1,6 +1,6 @@
 ---
 name: Data-Tabulate
-version: 0.03
+version: 0.04
 author:
   - 'Renee Baecker <module@renee-baecker.de>'
 abstract: "Table generation!"
@@ -16,6 +16,6 @@ meta-spec:
 provides:
   Data::Tabulate:
     file: lib/Data/Tabulate.pm
-    version: 0.03
+    version: 0.04
 resources:
   license: http://dev.perl.org/licenses/
