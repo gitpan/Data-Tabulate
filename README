@@ -1,6 +1,4 @@
-Data::Tabulate
-
-Data::Tabulate simplifies table generation.
+Data-Tabulate
 
 INSTALLATION
 
@@ -21,20 +19,20 @@ After installing, you can find documentation for this module with the perldoc co
 You can also look for information at:
 
     Search CPAN
-        http://search.cpan.org/dist/Data::Tabulate
+        http://search.cpan.org/dist/Data-Tabulate
 
     CPAN Request Tracker:
-        http://rt.cpan.org/NoAuth/Bugs.html?Dist=Data::Tabulate
+        http://rt.cpan.org/NoAuth/Bugs.html?Dist=Data-Tabulate
 
     AnnoCPAN, annotated CPAN documentation:
-        http://annocpan.org/dist/Data::Tabulate
+        http://annocpan.org/dist/Data-Tabulate
 
     CPAN Ratings:
-        http://cpanratings.perl.org/d/Data::Tabulate
+        http://cpanratings.perl.org/d/Data-Tabulate
 
 COPYRIGHT AND LICENCE
 
-Copyright (C) 2006 Renee Baecker
+Copyright (C) 2007 Robert Krimen
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

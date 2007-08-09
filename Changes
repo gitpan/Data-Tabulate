@@ -1,5 +1,5 @@
-Revision history for Data::Tabulate
+0.01 Thursday August 09 13:27:24 PDT 2007:
+- Row major/column major selectable implementation
 
-0.01    Wed 27 Dec 12:19:12 2006
-        First version, released on an unsuspecting world.
-
+0.01 Saturday August 04 20:52:56 PDT 2007:
+- Initial version
