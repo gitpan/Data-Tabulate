@@ -1,12 +1,17 @@
-Build.PL
 Changes
 MANIFEST
-META.yml # Will be created by "make dist"
+META.yml
 README
+Makefile.PL
+
 lib/Data/Tabulate.pm
+
 t/00-load.t
+t/01_tabulate.t
+t/02_render.t
+t/03_max_cols.t
+t/04_fill_with.t
 t/boilerplate.t
 t/pod-coverage.t
 t/pod.t
-t/01-Data-Tabulate.t
-Makefile.PL
+t/99_check_manifest.t

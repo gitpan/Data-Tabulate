@@ -1,5 +1,17 @@
-0.01 Thursday August 09 13:27:24 PDT 2007:
-- Row major/column major selectable implementation
+Revision history for Data::Tabulate
 
-0.01 Saturday August 04 20:52:56 PDT 2007:
-- Initial version
+0.06    Thu Aug 19th, 2010
+        - changed algorithm to tabulate the data (the new one is ~30% faster)
+        - moved from Module::Build to ExtUtils::MakeMaker
+        - relicense under Artistic License 2.0
+
+0.05    2009-05-12
+        - add fill_with to fill the table with a user specified value instead of undef
+
+0.0401  2009-02-12
+
+        - bugfix in 02_render.t
+
+0.01    Wed 27 Dec 12:19:12 2006
+        First version, released on an unsuspecting world.
+

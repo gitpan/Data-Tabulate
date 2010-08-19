@@ -2,406 +2,311 @@ package Data::Tabulate;
 
 use warnings;
 use strict;
+use Carp;
 
 =head1 NAME
 
-Data::Tabulate - Create a table (two-dimensional array) from a list (one dimensional array)
+Data::Tabulate - Table generation!
 
 =head1 VERSION
 
-Version 0.01
+Version 0.06
 
 =cut
 
-our $VERSION = '0.01';
+our $VERSION = '0.06';
 
 =head1 SYNOPSIS
 
-    my $table = Data::Tabulate->new([ 'a' .. 'z' ], rows => 6);
-    my $rows = $table->rows;
-    # Returns a the following two-dimensional array:
-    # [ 
-    #  [ qw/ a b c d e / ],
-    #  [ qw/ f g h i j / ],
-    #  [ qw/ k l m n o / ],
-    #  [ qw/ p q r s t / ],
-    #  [ qw/ u v w x y / ],
-    #  [ qw/ z/ ],
-    # ]
+C<Data::Tabulate> aims to simplify the generation of tables. Often you don't have
+tables like in databases (with header and several rows of data), but tables with
+content only (like image galleries or listings displayed as tables).
 
-    my $columns = $table->columns;
-    # Returns a the following two-dimensional array:
-    # [ 
-    #  [ qw/ a f k p u z / ],
-    #  [ qw/ b g l q v / ],
-    #  [ qw/ c h m r w / ],
-    #  [ qw/ d i n s x / ],
-    #  [ qw/ e j o t y / ],
-    # ]
+You can use other modules (e.g. HTML::Table) to produce specific output.
 
-=cut
+Perhaps a little code snippet.
 
-use POSIX qw/ceil/;
-use Sub::Exporter -setup => {
-	exports => [
-        rows => sub { \&_rows },
-        columns => sub { \&_columns },
-    ],
-};
+    use Data::Tabulate;
+    use Data::Dumper;
+    
+    my @array = qw(1..12);
+    
+    my $foo   = Data::Tabulate->new();
+    my @table = $foo->tabulate(@array);
+    
+    my $html  = $foo->render('HTMLTable',@array);
 
-use Scalar::Util qw/blessed/;
+=head1 METHODS
 
-use base qw/Class::Accessor::Fast/;
+=head2 new
 
-__PACKAGE__->mk_accessors(qw/_data row_count column_count overlap column_offset pad ready row_accessor column_accessor row_major column_major/);
-
-sub _rows {
-    my $data = shift;
-    my $rows = shift;
-    return __PACKAGE__->new(data => $data, rows => $rows, @_)->rows;
-}
-
-sub _columns {
-    my $data = shift;
-    my $columns = shift;
-    return __PACKAGE__->new(data => $data, columns => $columns, @_)->columns;
-}
-
-=over 4
-
-=item Data::Tabulate->new
+create a new object of C<Data::Tabulate>.
 
 =cut
 
 sub new {
-    my $self = bless {}, shift;
-    my $data = shift if ref $_[0] eq "ARRAY";
-    local %_ = @_;
-    $self->data($data || $_{data});
-    $self->row_count($_{rows} || $_{row_count});
-    $self->column_count($_{columns} || $_{column_count});
-    $self->overlap($_{overlap} || 0);
-    $self->pad($_{pad} || $_{padding} || 0);
-    $self->row_major($_{row_major});
-    $self->column_major($_{column_major});
-    $self->row_major(1) unless $self->column_major;
-    $self->ready(0);
+    my ($class) = @_;
+    
+    my $self = {};
+    bless $self,$class;
+    
+    $self->max_columns(100_000);
+    $self->min_columns(1);
+    
     return $self;
 }
 
-#sub __calculate {
-#    my $self = shift;
+=head2 render ( $plugin, {data => \@array [, attr => {%hash}]} )
 
-#    my $data = $self->data;
-#    my $data_size = @$data;
-#    my $row_count = $self->row_count;
-#    my $column_count = $self->column_count;
-#    my $overlap = $self->overlap;
+This methods loads the Plugin I<$plugin> and renders the table with the plugin.
 
-#    my ($column_offset);
+Example:
 
-#    if ($row_count) {
-#        if ($data_size < $row_count) {
-#            $row_count = $data_size;
-#            $column_count = 1;
-#            $column_offset = 0;
-#        }
-#        else {
-#            $column_offset = $row_count - $overlap;
-#            $column_count = int ($data_size / $column_offset) 
-#                + ($data_size % $column_offset > $overlap ? 1 : 0)
-#        }
-#    }
-#    elsif ($column_count) {
-#        if ($data_size < $column_count) {
-#            $column_count = $data_size;
-#            $row_count = 1;
-#            $column_offset = 1;
-#        }
-#        else {
-#            $column_offset = int ($data_size / $column_count) 
-#                + ($data_size % $column_count > $overlap ? 1 : 0);
-#            $row_count = $column_offset + $overlap;
-#        }
-#    }
-#    else {
-#        $row_count = $data_size;
-#        $column_count = 1;
-#        $column_offset = 0;
-#    }
+    my $html_table = $tabulator->render('HTMLTable',{data => [1..10]});
 
-#    $self->row_count($row_count);
-#    $self->column_count($column_count);
-#    $self->column_offset($column_offset);
-#    $self->_reset;
+loads the module C<Data::Tabulate::Plugin::HTMLTable> and returns this string:
 
-#    return ($row_count, $column_count);
-#}
+  <table>
+  <tr><td>1</td><td>2</td><td>3</td></tr>
+  <tr><td>4</td><td>5</td><td>6</td></tr>
+  <tr><td>7</td><td>8</td><td>9</td></tr>
+  <tr><td>10</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+  </table>
 
-sub _minor_accessor($$$$$$) {
-    my ($major_offset, $major_count, $minor_count, $minor_index, $data, $pad) = @_;
+You can write your own plugins.
 
-    return () if $minor_index >= $minor_count || $minor_index < 0;
+=cut
+
+sub render {
+    my ($self,$module,$atts) = @_;
     
-    my $data_size = @$data;
-    my @minor;
-    my $index = $minor_index;
-
-    for (my $major_index = 0; $major_index < $major_count; $major_index++) {
-        push(@minor, $index < $data_size ? $data->[$index] : ($pad ? undef : ()));
-        $index += $major_offset;
+    unless(defined $atts and ref($atts) eq 'HASH' and
+           exists $atts->{data} and ref($atts->{data}) eq 'ARRAY'){
+        croak "no data given";
     }
-
-    return \@minor;
-}
-
-sub _major_accessor($$$$$$) {
-    my ($major_offset, $major_count, $minor_count, $major_index, $data, $pad) = @_;
     
-    return () if $major_index >= $major_count || $major_index < 0;
-
-    my $data_size = @$data;
-    my ($start, $end, $padding);
-
-    $start = $major_offset * $major_index;
-    $end = $major_offset * $major_index + $minor_count - 1;
-    $end = $start if $end < $start;
-    if ($end >= $data_size) {
-        $padding = ($end - $data_size) + 1;
-        $end = $data_size - 1;
-    }
-    return () if $start >= $data_size;
-
-    return [ @$data[$start .. $end], 
-             $pad && $padding ? ((undef) x $padding) : () ];
-}
-
-sub _calculate {
-    my $self = shift;
-
-    my $data = $self->data;
-    my $data_size = @$data;
-    my $row_count = $self->row_count;
-    my $column_count = $self->column_count;
-    my $pad = $self->pad;
-    my $row_major = $self->row_major;
-    my $column_major = $self->column_major;
-
-    my ($row_offset, $column_offset);
-
-    if ($column_major) {
-        if ($row_count) {
-            if ($data_size < $row_count) {
-                $row_count = $data_size;
-                $column_count = 1;
-                $column_offset = 0;
-            }
-            else {
-                $column_offset = $row_count;
-                $column_count = ceil($data_size / $column_offset);
-#               $column_count = int ($data_size / $column_offset) +
-#                   ($data_size % $column_offset ? 1 : 0);
-            }
+    my @data = @{$atts->{data}};
+    my $tmp  = $module;
+    $module  = 'Data::Tabulate::Plugin::'.$module;
+    
+    $self->_load_module($module);
+    
+    @data          = $self->_data() unless @data;
+    my @table      = $self->tabulate(@data);
+    my $plugin_obj = $module->new();
+    
+    for my $method(@{$self->{method_calls}->{$tmp}}){
+        if($plugin_obj->can($method->[0])){
+            no strict 'refs';
+            my $method_name = $method->[0];
+            my @params      = @{$method->[1]}; 
+            $plugin_obj->$method_name(@params);
         }
-        elsif ($column_count) {
-            if ($data_size < $column_count) {
-                $column_count = $data_size;
-                $row_count = 1;
-                $column_offset = 1;
-            }
-            else {
-                $column_offset = ceil($data_size / $column_count);
-#               $column_offset = int ($data_size / $column_count) +
-#                   ($data_size % $column_count ? 1 : 0);
-                $row_count = $column_offset;
-            }
-        }
-        else {
-            $row_count = $data_size;
-            $column_count = 1;
-            $column_offset = 0;
-        }
-        $self->row_accessor(sub {
-            return _minor_accessor($column_offset, $column_count, $row_count, shift, $data, $pad);
-        });
-        $self->column_accessor(sub {
-            return _major_accessor($column_offset, $column_count, $row_count, shift, $data, $pad);
-        });
     }
-    else { # Assume row major
-        if ($column_count) {
-            if ($data_size < $column_count) {
-                $column_count = $data_size;
-                $row_count = 1;
-                $row_offset = 0;
-            }
-            else {
-                $row_offset = $column_count;
-                $row_count = ceil($data_size / $row_offset);
-            }
-        }
-        elsif ($row_count) {
-            if ($data_size < $row_count) {
-                $row_count = $data_size;
-                $column_count = 1;
-                $row_offset = 1;
-            }
-            else {
-                $row_offset = ceil($data_size / $row_count);
-                $column_count = $row_offset;
-            }
-        }
-        else {
-            $column_count = $data_size;
-            $row_count = 1;
-            $row_offset = 0;
-        }
-        $self->row_accessor(sub {
-            return _major_accessor($row_offset, $row_count, $column_count, shift, $data, $pad);
-        });
-        $self->column_accessor(sub {
-            return _minor_accessor($row_offset, $row_count, $column_count, shift, $data, $pad);
-        });
+    
+    return $plugin_obj->output(@table);
+}
+
+=head2 tabulate( @array )
+
+This methods creates an array of arrays that can be used to render a table
+or you can do your own thing with the array.
+
+    my @array = $tabulator->tabulate(1..10);
+
+returns
+
+    (
+      [ 1,     2,     3 ],
+      [ 4,     5,     6 ],
+      [ 7,     8,     9 ],
+      [10, undef, undef ],
+    )
+
+=cut
+
+sub tabulate {
+    my ($self,@data) = @_;
+    
+    my $nr   = scalar @data;
+    my $cols = int sqrt $nr;
+    
+    # the calculated number of columns should not exceed the maximum
+    # number of columns that the user has specified
+    if($cols > $self->max_columns){
+        $cols    = $self->max_columns;
     }
-
-    $self->row_count($row_count);
-    $self->column_count($column_count);
-    $self->column_offset($column_offset);
-    $self->_reset;
-
-    return ($row_count, $column_count);
-}
-
-=item $table->data
-
-=cut
-
-sub data {
-    my $self = shift;
-    if (@_) {
-        $self->_data(shift);
-        $self->_reset;
+    
+    # the calculated number of columns should be greater the minimum
+    # number of columns that the user has specified
+    if($cols < $self->min_columns){
+        $cols    = $self->min_columns;
     }
-    return $self->_data;
-}
-
-=item $table->width
-
-=cut
-
-sub width {
-    my $self = shift;
-    $self->_calculate unless $self->ready;
-    return ($self->column_count)
-}
-
-=item $table->height
-
-=cut
-
-sub height {
-    my $self = shift;
-    $self->_calculate unless $self->ready;
-    return ($self->row_count)
-}
-
-=item $table->dimensions
-
-=item $table->geometry
-
-=cut
-
-sub dimensions {
-    my $self = shift;
-    return ($self->width, $self->height);
-}
-*geometry = \&dimensions;
-
-=item $table->rows
-
-=cut
-
-sub rows {
-    my $self = shift;
-    if (@_) {
-        return _rows(@_) unless blessed $self;
-        $self->row_count(shift);
-        $self->_reset;
+    
+    $self->{cols} = $cols;
+    
+    my $index = $cols - 1;
+    
+    # tabulate data
+    my @tmp_data;
+    while ( $index < $nr ) {
+        my $start = $index - $cols + 1;
+        push @tmp_data, [ @data[ $start .. $index ] ];
+        $index += $cols;
     }
-    else {
-        $self->_calculate unless $self->ready;
+               
+    my $fill_value = $self->{fill_value};
 
-        my $row_count = $self->row_count;
-
-        return [ map { $self->row($_) } (0 .. $row_count - 1) ];
+    my $rest = ($cols - ($nr % $cols)) % $cols;
+    $self->{rest} = $rest;
+    if($rest > 0){
+        
+        my $start = $nr - ($cols - $rest);
+        my $end   = $nr - 1;
+        
+        push @tmp_data, [
+            @data[$start..$end],
+            ($fill_value) x $rest,
+        ];
     }
+    
+    $self->{rows} = scalar @tmp_data;
+               
+    return @tmp_data;
 }
 
-=item $table->columns
+=head2 fill_with
+
+if the array doesn't provide enough elements the table is filled with 'undef' elements
+sometimes this is not the wanted behaviour. So you can change the value that is used
+to fill the array.
+
+  $obj->fill_with( 'hi' );
+
+for an example see t/04_fill_with.t
 
 =cut
 
-sub columns {
-    my $self = shift;
-    if (@_) {
-        return _columns(@_) unless blessed $self;
-        $self->column_count(shift);
-        $self->_reset;
+sub fill_with {
+    my ($self,$value) = @_;
+    
+    $self->{fill_value} = $value;
+}
+
+=head2 cols
+
+returns the number of columns the table has
+
+=cut
+
+sub cols{
+    my ($self) = @_;
+    return $self->{cols};
+}
+
+=head2 rows
+
+returns the number of rows the table has
+
+=cut
+
+sub rows{
+    my ($self) = @_;
+    return $self->{rows};
+}
+
+=head2 max_columns
+
+set how many columns the table can have (at most).
+
+    $tabulator->max_columns(3);
+
+the table has at most three columns
+
+=cut
+
+sub max_columns{
+    my ($self,$value) = @_;
+    
+    $self->{max_cols} = $value if defined $value and $value =~ /^[1-9]\d*$/;
+    
+    my $caller = (caller(1))[3];
+    unless( ($caller and $caller =~ /min_columns/) or not defined $self->min_columns){
+        $self->min_columns($self->{max_cols}) if $self->{max_cols} < $self->min_columns;
     }
-    else {
-        $self->_calculate unless $self->ready;
+    
+    return $self->{max_cols};
+}
 
-        my $column_count = $self->column_count;
+=head2 min_columns
 
-        return [ map { $self->column($_) } (0 .. $column_count - 1) ];
+set how many columns the table can have (at least).
+
+    $tabulator->min_columns(3);
+
+the table has at least three columns
+
+=cut
+
+sub min_columns{
+    my ($self,$value) = @_;
+    
+    $self->{min_cols} = $value if defined $value and $value =~ /^[1-9]\d*$/;
+    
+    my $caller = (caller(1))[3];
+    unless( $caller and $caller =~ /max_columns/){
+        $self->max_columns($self->{min_cols}) if $self->{min_cols} > $self->max_columns;
     }
+    
+    return $self->{min_cols};
 }
 
-sub _reset {
-    my $self = shift;
-    $self->ready(0);
-}
+=head2 do_func($module, $method, @params)
 
-=item $table->row
+If you need to call some methods of the rendering object, you can use this
+method, to prepare these method calls.
 
 =cut
 
-sub row {
-    my $self = shift;
-    my $row = shift;
-
-    $self->_calculate unless $self->ready;
-
-    return $self->row_accessor->($row);
+sub do_func{
+    my ($self,$module,$method,@params) = @_;
+    
+    push @{$self->{method_calls}->{$module}},[$method,[@params]];
 }
 
-=item $table->column
+=head2 reset_func( $module )
+
+reset the method call preperations
 
 =cut
 
-sub column {
-    my $self = shift;
-    my $column = shift;
-
-    $self->_calculate unless $self->ready;
-
-    return $self->column_accessor->($column);
+sub reset_func{
+    my ($self,$module) = @_;
+    delete $self->{method_calls}->{$module};
 }
 
-=item $table->as_string
 
-=cut
+#------------------------------------------------------------------------------#
+#                      "private" methods                                       #
+#------------------------------------------------------------------------------#
 
-sub as_string {
-    my $self = shift;
-    return join "\n", map { join " ", @$_ } @{ $self->rows };
+sub _load_module {
+    my ($self,$module) = @_;
+    eval "use $module";
+    croak "could not load $module" if $@; 
 }
 
-=back
+sub _data{
+    my ($self,@data) = @_;
+    $self->{data} = [@data] if @data;
+    return @{$self->{data}};
+}
+
+=head2 
 
 =head1 AUTHOR
 
-Robert Krimen, C<< <rkrimen at cpan.org> >>
+Renee Baecker, C<< <module at renee-baecker.de> >>
 
 =head1 BUGS
 
@@ -443,10 +348,10 @@ L<http://search.cpan.org/dist/Data-Tabulate>
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2007 Robert Krimen, all rights reserved.
+Copyright 2006 - 2010 Renee Baecker, all rights reserved.
 
 This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
+under the same terms of Artistic License 2.0.
 
 =cut
 
